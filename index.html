@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shoulder Alignment Checker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+    }
+    .video-container, .canvas-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    video, canvas {
+      border: 2px solid #000;
+      border-radius: 10px;
+      width: 640px;
+      height: 480px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .status {
+      text-align: center;
+      font-size: 1.5em;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Shoulder Alignment Checker</h1>
+  <div class="container">
+    <div class="video-container">
+      <h3>Real Camera</h3>
+      <video class="input_video"></video>
+    </div>
+    <div class="canvas-container">
+      <h3>Pose Detection</h3>
+      <canvas class="output_canvas"></canvas>
+    </div>
+  </div>
+  <div class="status" id="status">Checking alignment...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+
+  <script>
+    const videoElement = document.getElementsByClassName('input_video')[0];
+    const canvasElement = document.getElementsByClassName('output_canvas')[0];
+    const canvasCtx = canvasElement.getContext('2d');
+    const statusElement = document.getElementById('status');
+
+    const pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    pose.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await pose.send({image: videoElement});
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+
+    function onResults(results) {
+      if (results.poseLandmarks) {
+        const leftShoulder = results.poseLandmarks[11]; // Left Shoulder
+        const rightShoulder = results.poseLandmarks[12]; // Right Shoulder
+
+        // Clear previous frame
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+        // Draw pose landmarks on the canvas
+        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+        drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#FF0000', lineWidth: 1});
+
+        // Draw line based on shoulder positions
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(leftShoulder.x * canvasElement.width, leftShoulder.y * canvasElement.height);
+        canvasCtx.lineTo(rightShoulder.x * canvasElement.width, rightShoulder.y * canvasElement.height);
+        canvasCtx.strokeStyle = 'blue';
+        canvasCtx.lineWidth = 5;
+        canvasCtx.stroke();
+
+        // Check if shoulders are even
+        if (Math.abs(leftShoulder.y - rightShoulder.y) < 0.02) {
+          statusElement.textContent = "Shoulders are even";
+        } else {
+          statusElement.textContent = "Shoulders are not even";
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>
