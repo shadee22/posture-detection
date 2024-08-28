@@ -1,131 +1,169 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shoulder Alignment Checker</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-    }
-    .container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 20px;
-    }
-    .video-container, .canvas-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    video, canvas {
-      border: 2px solid #000;
-      border-radius: 10px;
-      width: 640px;
-      height: 480px;
-    }
-    h1 {
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-
-  <h1>Shoulder Alignment Checker</h1>
-  <div class="container">
-    <div class="video-container">
-      <h3>Real Camera</h3>
-      <video class="input_video"></video>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shoulder Alignment Checker</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+      }
+      .video-container,
+      .canvas-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      video,
+      canvas {
+        border: 2px solid #000;
+        border-radius: 10px;
+        width: 640px;
+        height: 480px;
+      }
+      h1 {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Shoulder Alignment Checker</h1>
+    <div class="container">
+      <div class="video-container">
+        <h3>Real Camera</h3>
+        <video class="input_video"></video>
+      </div>
+      <div class="canvas-container">
+        <h3>Pose Detection</h3>
+        <canvas class="output_canvas"></canvas>
+      </div>
     </div>
-    <div class="canvas-container">
-      <h3>Pose Detection</h3>
-      <canvas class="output_canvas"></canvas>
-    </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
 
-  <script>
-    const videoElement = document.getElementsByClassName('input_video')[0];
-    const canvasElement = document.getElementsByClassName('output_canvas')[0];
-    const canvasCtx = canvasElement.getContext('2d');
+    <script>
+      const videoElement = document.getElementsByClassName("input_video")[0];
+      const canvasElement = document.getElementsByClassName("output_canvas")[0];
+      const canvasCtx = canvasElement.getContext("2d");
 
-    const pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-    });
+      const pose = new Pose({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+      });
 
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
+      pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
 
-    pose.onResults(onResults);
+      pose.onResults(onResults);
 
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await pose.send({image: videoElement});
-      },
-      width: 640,
-      height: 480
-    });
-    camera.start();
+      const camera = new Camera(videoElement, {
+        onFrame: async () => {
+          await pose.send({ image: videoElement });
+        },
+        width: 640,
+        height: 480,
+      });
+      camera.start();
 
-    function onResults(results) {
-      if (results.poseLandmarks) {
-        const leftShoulder = results.poseLandmarks[11]; // Left Shoulder
-        const rightShoulder = results.poseLandmarks[12]; // Right Shoulder
-
-        // Clear previous frame
-        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-        // Draw pose landmarks on the canvas
-        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
-        drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#FF0000', lineWidth: 2});
-
-        // Calculate middle point on the shoulder line
-        const midX = (leftShoulder.x + rightShoulder.x) / 2 * canvasElement.width;
-        const midY = (leftShoulder.y + rightShoulder.y) / 2 * canvasElement.height;
-
-        // Calculate the difference between shoulders to move the triangle
-        const yDifference = leftShoulder.y - rightShoulder.y;
-        const triangleOffset = yDifference * canvasElement.width * 2; // Adjust sensitivity as needed
-
-        // Draw shoulder line
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(leftShoulder.x * canvasElement.width, leftShoulder.y * canvasElement.height);
-        canvasCtx.lineTo(rightShoulder.x * canvasElement.width, rightShoulder.y * canvasElement.height);
-        canvasCtx.strokeStyle = 'blue';
-        canvasCtx.lineWidth = 5;
-        canvasCtx.stroke();
-
-        // Draw triangle at the midpoint of the shoulder line
-        drawTriangle(midX + triangleOffset, midY);
-
-        // Check if shoulders are even
-        if (Math.abs(yDifference) < 0.02) {
-          console.log("Shoulders are even");
-        } else {
-          console.log("Shoulders are not even");
+      function onResults(results) {
+        if (results.poseLandmarks) {
+          const leftShoulder = results.poseLandmarks[11]; // Left Shoulder
+          const rightShoulder = results.poseLandmarks[12]; // Right Shoulder
+          const nose = results.poseLandmarks[0]; // Nose to approximate neck position
+      
+          // Calculate left shoulder angle
+          const leftDx = nose.x - leftShoulder.x;
+          const leftDy = nose.y - leftShoulder.y;
+          const leftShoulderAngle = Math.atan2(leftDy, leftDx) * (180 / Math.PI);
+      
+          // Calculate right shoulder angle
+          const rightDx = rightShoulder.x - nose.x;
+          const rightDy = rightShoulder.y - nose.y;
+          const rightShoulderAngle = Math.atan2(rightDy, rightDx) * (180 / Math.PI);
+      
+          console.log("Left shoulder angle:", leftShoulderAngle);
+          console.log("Right shoulder angle:", rightShoulderAngle);
+      
+          // Clear previous frame
+          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      
+          // Draw pose landmarks on the canvas
+          drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {
+            color: "#00FF00",
+            lineWidth: 4,
+          });
+          drawLandmarks(canvasCtx, results.poseLandmarks, {
+            color: "#FF0000",
+            lineWidth: 2,
+          });
+      
+          // Calculate positions
+          const leftX = leftShoulder.x * canvasElement.width;
+          const rightX = rightShoulder.x * canvasElement.width;
+          let midY = ((leftShoulder.y + rightShoulder.y) / 2) * canvasElement.height;
+      
+          // Calculate the difference between shoulders to move the triangle
+          const shoulderDistance = rightX - leftX;
+          const yDifference = leftShoulder.y - rightShoulder.y;
+          let triangleOffset = yDifference * shoulderDistance; // Offset relative to shoulder distance
+      
+          // Calculate the final X position of the triangle
+        let triangleX = leftX + shoulderDistance / 2 + triangleOffset / 2;
+          
+          // Draw a beautiful indicator line
+          drawIndicatorLine(leftX, rightX, midY);
+          // midY = midY + midY +0.01
+          // Draw triangle at the clamped position along the indicator line
+          drawTriangle(triangleX, midY);
         }
       }
-    }
-
-    function drawTriangle(x, y) {
-      const size = 10; // Size of the triangle
-      canvasCtx.beginPath();
-      canvasCtx.moveTo(x, y - size);
-      canvasCtx.lineTo(x - size, y + size);
-      canvasCtx.lineTo(x + size, y + size);
-      canvasCtx.closePath();
-      canvasCtx.fillStyle = 'black';
-      canvasCtx.fill();
-    }
-  </script>
-
-</body>
+      
+      function drawIndicatorLine(leftX, rightX, y) {
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(leftX, y);
+        canvasCtx.lineTo(rightX, y);
+        canvasCtx.strokeStyle = "#3498db"; // Light blue color for the indicator line
+        canvasCtx.lineWidth = 8; // Thicker line for better visibility
+        canvasCtx.setLineDash([10, 10]); // Dashed line style for the indicator
+        canvasCtx.stroke();
+      
+        // Add additional styling elements like gradient or shadow if desired
+        const gradient = canvasCtx.createLinearGradient(leftX, y, rightX, y);
+        gradient.addColorStop(0, "rgba(52, 152, 219, 0.5)");
+        gradient.addColorStop(1, "rgba(41, 128, 185, 0.5)");
+        canvasCtx.fillStyle = gradient;
+        canvasCtx.fillRect(leftX, y - 4, rightX - leftX, 8); // Fill gradient along the line
+      }
+      
+      function drawTriangle(x, y) {
+        const size = 12; // Slightly larger triangle
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(x, y - size);
+        canvasCtx.lineTo(x - size, y + size);
+        canvasCtx.lineTo(x + size, y + size);
+        canvasCtx.closePath();
+        canvasCtx.fillStyle = "black";
+        canvasCtx.fill();
+      
+        // Optionally, add a border or shadow to the triangle for better visibility
+        canvasCtx.strokeStyle = "white";
+        canvasCtx.lineWidth = 2;
+        // canvasCtx.stroke();
+        canvasCtx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        canvasCtx.shadowBlur = 4;
+      }
+    </script>
+  </body>
 </html>
